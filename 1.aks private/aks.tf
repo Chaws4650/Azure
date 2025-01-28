@@ -65,10 +65,10 @@ resource "azurerm_kubernetes_cluster" "aks_cluster" {
     os_disk_size_gb              = 30
     vnet_subnet_id               = azurerm_subnet.subnet.id
     zones                        = [2]
-    node_count                   = 1
+    node_count                   = 2
     auto_scaling_enabled         = true # Enable Cluster Autoscaler
-    min_count                    = 1
-    max_count                    = 1
+    min_count                    = 2
+    max_count                    = 3
     temporary_name_for_rotation  = "tempsystem" # Temporary node pool name used to cycle the default node pool for VM resizing
     only_critical_addons_enabled = false
 

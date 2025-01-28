@@ -232,7 +232,9 @@ EOF
 
 
 
-
+####
+#  az keyvault secret set --vault-name aks-kv-465  --name secret --value "P@ssw0rd123!"
+#  az keyvault secret set --vault-name aks-kv-465  --name application --value "P@ssw0rd123!"
 
 
 

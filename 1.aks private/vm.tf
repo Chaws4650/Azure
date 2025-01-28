@@ -17,7 +17,7 @@ resource "azurerm_linux_virtual_machine" "vm-linux" {
   depends_on = [ azurerm_resource_group.example,azurerm_user_assigned_identity.identity-vm ]
   resource_group_name    = azurerm_resource_group.example.name
   location               = azurerm_resource_group.example.location
-  size                            = "Standard_B1s"
+  size                            = "Standard_B1s" 
   disable_password_authentication = false
   admin_username                  = "toor"
   admin_password                  = "AzureCloud123!"

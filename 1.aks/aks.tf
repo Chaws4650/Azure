@@ -64,7 +64,7 @@ resource "azurerm_kubernetes_cluster" "aks_cluster" {
     os_disk_size_gb              = 30
     vnet_subnet_id               = azurerm_subnet.subnet.id
     zones                        = [2]
-    node_count                   = 2
+    node_count                   = 3
     auto_scaling_enabled         = true # Enable Cluster Autoscaler
     min_count                    = 2
     max_count                    = 2
