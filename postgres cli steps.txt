@@ -1,0 +1,241 @@
+
+#https://gist.github.com/alexisP/88222ce7a6ed6188e726186f4b763e23
+#https://alexisplantin.fr/workload-identity-federation/
+
+export RESOURCE_GROUP="spring-boot-demo"
+export CLUSTER_NAME="spring-boot-demo"
+export LOCATION="westeurope"    
+export SUBSCRIPTION="$(az account show --query id --output tsv)"
+export USER_ASSIGNED_IDENTITY_NAME="spring-boot-demo-identity"   
+export DATABASE_NAME="spring-boot-demo123455"
+export DATABASE_LOCAL_USER="spring"
+export DATABASE_PASSWORD="Varma@465"
+export DATABASE_APPLICATION_USER=myuser@$DATABASE_NAME
+export NAMESPACE_NAME="spring-boot-demo"
+export SERVICE_ACCOUNT_NAME="spring-boot-demo-identity-sa"
+
+# Create the cluster
+az group create --location $LOCATION --name $RESOURCE_GROUP
+az aks create -g ${RESOURCE_GROUP} -n ${CLUSTER_NAME} --enable-oidc-issuer --enable-workload-identity --node-count=2
+
+
+# Get the IODC issuer URL
+export AKS_OIDC_ISSUER="$(az aks show -n "${CLUSTER_NAME}" -g "${RESOURCE_GROUP}" --query "oidcIssuerProfile.issuerUrl" -otsv)"
+
+
+# Create a managed identity and get its client id
+az identity create \
+    --name "${USER_ASSIGNED_IDENTITY_NAME}" \
+    --resource-group "${RESOURCE_GROUP}" \
+    --location "${LOCATION}" \
+    --subscription "${SUBSCRIPTION}"
+
+export USER_ASSIGNED_CLIENT_ID="$(az identity show --resource-group "${RESOURCE_GROUP}" --name "${USER_ASSIGNED_IDENTITY_NAME}" --query 'clientId' -otsv)"
+
+echo "Creating PostgreSQL Server instance"
+
+az postgres server create \
+    --resource-group $RESOURCE_GROUP \
+    --name $DATABASE_NAME \
+    --location $LOCATION \
+    --sku-name B_Gen5_1 \
+    --storage-size 5120 \
+    --admin-user $DATABASE_LOCAL_USER \
+    --admin-password $DATABASE_PASSWORD \
+   -o tsv
+
+echo "-----------------------------------------------------"
+echo "Configuring PostgreSQL Server firewall"
+
+az postgres server firewall-rule create \
+    --resource-group $RESOURCE_GROUP \
+    --name $DATABASE_NAME-database-allow-local-ip \
+    --server $DATABASE_NAME \
+    --start-ip-address 0.0.0.0 \
+    --end-ip-address 255.255.255.255 \
+   -o tsv
+
+echo "-----------------------------------------------------"
+echo "Configuring PostgreSQL Server database"
+
+az postgres db create \
+    --resource-group $RESOURCE_GROUP \
+    --name demo \
+    --server-name $DATABASE_NAME \
+   -o tsv
+
+
+# Put yourself as an AAD admin
+echo "-----------------------------------------------------"
+echo "Add yourself as an Azure AD Admin"
+
+
+export DATABASE_AAD_ADMIN_OBJECT_ID=$(az ad signed-in-user show --query "[id]" -o tsv)
+export DATABASE_AAD_ADMIN_NAME=soma.bharath818@gmail.com
+
+az postgres server ad-admin create \
+    --server-name $DATABASE_NAME \
+    -g $RESOURCE_GROUP \
+    --display-name $DATABASE_AAD_ADMIN_NAME \
+    --object-id $DATABASE_AAD_ADMIN_OBJECT_ID
+
+export PGPASSWORD=$(az account get-access-token --resource-type oss-rdbms --query "[accessToken]" -o tsv)
+psql "host=$DATABASE_NAME.postgres.database.azure.com port=5432 dbname=demo user=soma.bharath818@gmail.com@$DATABASE_NAME sslmode=require"
+
+
+SET aad_validate_oids_in_tenant = off;
+CREATE ROLE myuser WITH LOGIN PASSWORD 'e7066991-a9e9-4560-8838-a889e4866d81' IN ROLE azure_ad_user;
+GRANT ALL PRIVILEGES ON DATABASE demo TO "myuser";
+
+
+az aks get-credentials --resource-group $RESOURCE_GROUP --name $CLUSTER_NAME
+
+# Create a namespace and the service account
+kubectl create namespace "${NAMESPACE_NAME}"
+
+# Create the service account
+cat <<EOF | kubectl apply -f -
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  annotations:
+    azure.workload.identity/client-id: ${USER_ASSIGNED_CLIENT_ID}
+  labels:
+    azure.workload.identity/use: "true"
+  name: ${SERVICE_ACCOUNT_NAME}
+  namespace: ${NAMESPACE_NAME}
+EOF
+
+export FEDERATED_IDENTITY_CREDENTIAL_NAME="my-fed-identity-cred"
+
+# Create the fererated credential
+az identity federated-credential create \
+    --name ${FEDERATED_IDENTITY_CREDENTIAL_NAME} \
+    --identity-name ${USER_ASSIGNED_IDENTITY_NAME} \
+    --resource-group ${RESOURCE_GROUP} \
+    --issuer ${AKS_OIDC_ISSUER} \
+    --subject system:serviceaccount:${NAMESPACE_NAME}:${SERVICE_ACCOUNT_NAME}
+
+# Deploy the app
+cat <<EOF | kubectl apply -f -
+apiVersion: v1
+kind: Pod
+metadata:
+  name: spring-boot-demo-workload-identity-passwordless
+  namespace: ${NAMESPACE_NAME}
+  labels:
+    azure.workload.identity/use: "true"
+spec:
+  serviceAccountName: ${SERVICE_ACCOUNT_NAME}
+  containers:
+    - image: aplantin.azurecr.io/spring-boot/spring-boot-demo-workload-identity-passwordless:1.2
+      name: spring-boot-demo-workload-identity-passwordless
+      env:
+      - name: AZ_DATABASE_NAME
+        value: ${DATABASE_NAME}
+      - name: AZ_DATABASE_USER
+        value: ${DATABASE_APPLICATION_USER}
+EOF
+
+# Check everything is working in the logs
+kubectl logs -f spring-boot-demo-workload-identity-passwordless -n $NAMESPACE_NAME
+
+kuebctl exec -it spring-boot-demo-workload-identity-passwordless -n spring-boot-demo -- sh
+--
+check db enteries done by app
+
+export PGPASSWORD=$(az account get-access-token --resource-type oss-rdbms --query "[accessToken]" -o tsv)
+psql "host=$DATABASE_NAME.postgres.database.azure.com port=5432 dbname=demo user=soma.bharath818@gmail.com@$DATABASE_NAME sslmode=require"
+
+demo=> \dt
+       List of relations
+ Schema | Name | Type  | Owner
+--------+------+-------+--------
+ public | todo | table | myuser
+(1 row)
+
+
+demo=> SELECT * FROM todo;
+ id |  description  |                   details                   | done 
+----+---------------+---------------------------------------------+------
+  1 | configuration | congratulations, you have set up correctly! | t
+  2 | configuration | congratulations, you have set up correctly! | t
+  3 | configuration | congratulations, you have set up correctly! | t
+(3 rows)
+
+demo=> 
+---------------------------------------------------
+
+For app without workload identity and using on username and password use below code generic one
+
+https://github.com/alexisP/spring-boot-demo/tree/passwordless
+
+
+export AZ_RESOURCE_GROUP=tmp-spring-jpa-postgresql
+export AZ_DATABASE_NAME=XXXXXX-tmp-spring-jpa-postgresql
+export AZ_LOCATION=eastus
+export AZ_POSTGRESQL_USERNAME=spring
+export AZ_POSTGRESQL_PASSWORD=XXXXXXXXXXXXXXXXXXX
+export AZ_LOCAL_IP_ADDRESS=$(curl http://whatismyip.akamai.com/)
+
+export SPRING_DATASOURCE_URL=jdbc:postgresql://$AZ_DATABASE_NAME.postgres.database.azure.com:5432/demo
+export SPRING_DATASOURCE_USERNAME=spring@$AZ_DATABASE_NAME
+export SPRING_DATASOURCE_PASSWORD=$AZ_POSTGRESQL_PASSWORD
+
+clone  the repo 
+
+FROM eclipse-temurin:17-jdk-alpine
+VOLUME /tmp
+ARG JAR_FILE
+COPY ${JAR_FILE} app.jar
+ENTRYPOINT ["java","-jar","/app.jar"]
+
+
+
+az acr create --resource-group $AZ_RESOURCE_GROUP \
+  --name mycontainerregistry1234556 --sku Basic
+
+az acr login --name mycontainerregistry1234556
+
+
+./mvnw package -Dmaven.test.skip
+docker build --build-arg JAR_FILE=target/*.jar -t mycontainerregistry1234556.azurecr.io/spring-boot/spring:3 .
+
+docker push mycontainerregistry1234556.azurecr.io/spring-boot/spring:3
+
+
+before this attach acr to aks az aks update
+az aks update --name spring-boot-demo --resource-group spring-boot-demo --attach-acr mycontainerregistry1234556
+
+
+cat <<EOF | kubectl apply -f -
+apiVersion: v1
+kind: Pod
+metadata:
+  name: spring-boot-demo-workload-identity-passwordless2
+  namespace: ${NAMESPACE_NAME}
+  labels:
+    azure.workload.identity/use: "true"
+spec:
+  serviceAccountName: ${SERVICE_ACCOUNT_NAME}
+  containers:
+    - image: mycontainerregistry1234556.azurecr.io/spring-boot/spring:3
+      name: spring-boot-demo-workload-identity-passwordless2
+      env:
+      - name: AZ_DATABASE_NAME
+        value: ${DATABASE_NAME}
+      - name: AZ_DATABASE_USER
+        value: ${DATABASE_APPLICATION_USER}
+      - name: AZ_DATABASE_PASSWORD
+        value: ${DATABASE_PASSWORD}        
+EOF
+
+
+
+
+
+
+
+
+
+

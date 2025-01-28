@@ -1,0 +1,92 @@
+
+#https://github.com/HoussemDellai/terraform-course/blob/7c7cfb0207f9db55deae0dcd04307c7caded7d9b/151_mysql_flexible_server/mysql_flexible_server.tf#L43
+#https://github.com/lahouely/orders_infrastructure/blob/bb25ed4944d8c758d3f43463055e9c522c2c175e/db_server.tf
+#https://github.com/lucianhanga/poc.azure.webapp.php.mysql/blob/622ba893322da6e9d82c3e05ccc1c5211b267d20/terraform/mysql.tf#L3
+#https://github.com/betagouv/euphrosyne-tools-infra/blob/c5072c309c549ea4d3c888a04b89d9d98f79a51a/terraform/db.tf#L35
+#https://github.com/CasperRiis/simple-library-backend/blob/fb075e55d772c48f9857d16661175241c9d3aeb4/tf_mysql.tf#L2
+#https://github.com/jose-10000/DevOps-Projects/blob/25816b22cf2b89d9d915d8c51afabf18387231cc/Ansible/2/00-azure-profile.sh
+
+
+
+#https://github.com/Alazzze/Azure-Kubernetes/blob/4cdf57bac4c1e2ef014cdd14ccebb3345fd9b59e/main.tf#L278
+#https://github.com/mo-ayman/Obelion-Cloud-IaC/blob/dca91710168bc1069c42cb331601ef5f3c50be1b/database.tf#L28 with runner
+#https://github.com/jacopen/practical-terraform-scripts/blob/c47cd7ea9307019294f6602f23b327fc15992ba5/chapter4-azure/main.tf#L144
+#https://github.com/Theego99/michimaker/blob/93cc5eaa57969a2264b810ef52a882b3e852dd82/datamodel/schema.sql
+#https://github.com/garafu/sample-todo-webapp-node/blob/7aa60b71f1de8d3a2e13293a9dde7d25fb6bcae5/infra/webapp.tf
+#https://github.com/katakura/azure-terraform-iaas-sample/blob/de69c3bd6044d71d409f1e7310d6891c941c67d9/src/main.tf
+
+
+#import
+#covers spring profiles
+#jira app intall
+#db app with mysql flexible
+#https://github.com/MostafaAMansour/DevOps-Depi-Tasks/blob/f733bec171600147e9e6bbe2551385dd06a8aad3/Task17/spring-petclinic/src/main/resources/application-mysql.properties
+
+#https://github.com/stacksimplify/azure-aks-kubernetes-masterclass/tree/master/06-Azure-MySQL-Flexible-for-AKS-Storage
+
+# mysql -h akswebappdb201201.mysql.database.azure.com -P 3306 -u dbadmin -pRedhat1449
+#mysql> show schemas;
+#mysql> create database webappdb;
+#mysql> show schemas;
+#mysql> exit
+#
+#
+
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: mysql
+spec:
+  type: ExternalName
+  externalName: mysql-flexserver-hcorp.mysql.database.azure.com
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: usermgmt-webapp
+  labels:
+    app: usermgmt-webapp
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: usermgmt-webapp
+  template:
+    metadata:
+      labels:
+        app: usermgmt-webapp
+    spec:
+      containers:
+        - name: usermgmt-webapp
+          image: acr4aks4dev465.azurecr.io/stack/spring:3
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8080
+          env:
+            - name: DB_HOSTNAME
+              value: "mysql"
+            - name: DB_PORT
+              value: "3306"
+            - name: DB_NAME
+              value: "webappdb"
+            - name: DB_USERNAME
+              value: "dbadmin"
+            - name: DB_PASSWORD
+              value: "Redhat1449"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: usermgmt-webapp-service
+  labels:
+    app: usermgmt-webapp
+spec:
+  type: LoadBalancer
+  selector:
+    app: usermgmt-webapp
+  ports:
+    - port: 80
+      targetPort: 8080
+
+    
