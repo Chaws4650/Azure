@@ -6,12 +6,9 @@ sudo apt -qq update
 curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash
 
 #Install Kubectl CLI
-#az aks install-cli
+sudo az aks install-cli
 sudo apt install docker.io -y
 sudo usermod -aG docker $USER
-
-mkdir test
-
 # login to Azure using VM's Managed Identity
 # az login --identity
 
