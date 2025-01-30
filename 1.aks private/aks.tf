@@ -92,8 +92,6 @@ resource "azurerm_kubernetes_cluster" "aks_cluster" {
      dns_zone_ids = [azurerm_private_dns_zone.private_dns_aks.id]
    }
 
-
-/*   
    oms_agent {
     log_analytics_workspace_id      = azurerm_log_analytics_workspace.workspace.id
     msi_auth_for_monitoring_enabled = true
@@ -103,7 +101,7 @@ resource "azurerm_kubernetes_cluster" "aks_cluster" {
     annotations_allowed = null
     labels_allowed      = null
   }
-*/
+
   depends_on = [
     azurerm_private_dns_zone.private_dns_aks,
     azurerm_subnet.subnet,
