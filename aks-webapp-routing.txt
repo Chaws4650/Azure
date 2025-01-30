@@ -1,0 +1,2 @@
+az aks approuting update --resource-group aks-465-rg --name aks-cluster --nginx internal
+kubectl run -it --rm --image=curlimages/curl curly -- /bin/sh
