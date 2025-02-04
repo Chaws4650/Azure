@@ -68,10 +68,35 @@ resource "azurerm_private_endpoint" "acr_private_endpoint" {
  }
 
 /*
- resource "azurerm_role_assignment" "cluster_admin2" {
-  depends_on = [ azurerm_kubernetes_cluster.aks_cluster ]
-  principal_id         = data.azurerm_client_config.current.object_id
-  role_definition_name = "AcrPull"
-  scope                = azurerm_container_registry.acr.id
+resource "azurerm_monitor_diagnostic_setting" "this" {
+  count = var.log_analytics_workspace_id == null ? 0 : 1
+  
+  name                       = "diagnostics_acr"
+  target_resource_id         = azurerm_container_registry.this.id
+  log_analytics_workspace_id = var.log_analytics_workspace_id
+
+  log {
+    category = "ContainerRegistryLoginEvents"
+
+    retention_policy {
+      enabled = true
+    }
+  }
+
+  log {
+    category = "ContainerRegistryRepositoryEvents"
+
+    retention_policy {
+      enabled = true
+    }
+  }
+
+  metric {
+    category = "AllMetrics"
+
+    retention_policy {
+      enabled = true
+    }
+  }
 }
 */

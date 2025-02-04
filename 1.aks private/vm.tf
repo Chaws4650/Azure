@@ -95,4 +95,3 @@ resource "azurerm_federated_identity_credential" "example-1" {
   issuer                 = "https://token.actions.githubusercontent.com"
   subject                = "repo:Chaws4650/1.aks-basic:ref:refs/heads/main"
 }
-

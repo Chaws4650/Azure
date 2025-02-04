@@ -1,5 +1,5 @@
 resource "azurerm_log_analytics_workspace" "workspace" {
-    depends_on = [ azurerm_resource_group.example ]
+  depends_on = [ azurerm_resource_group.example ]
   name                       = "log-analytics-workspace"
   resource_group_name        = azurerm_resource_group.example.name
   location                   = azurerm_resource_group.example.location
@@ -9,15 +9,104 @@ resource "azurerm_log_analytics_workspace" "workspace" {
   internet_query_enabled     = true
 }
 
-# resource "azurerm_log_analytics_solution" "solution" {
-#   solution_name         = "ContainerInsights"
-#   location              = azurerm_log_analytics_workspace.workspace.location
-#   resource_group_name   = azurerm_log_analytics_workspace.workspace.resource_group_name
-#   workspace_resource_id = azurerm_log_analytics_workspace.workspace.id
-#   workspace_name        = azurerm_log_analytics_workspace.workspace.name
+ resource "azurerm_log_analytics_solution" "solution" {
+   solution_name         = "ContainerInsights"
+   location              = azurerm_log_analytics_workspace.workspace.location
+   resource_group_name   = azurerm_log_analytics_workspace.workspace.resource_group_name
+   workspace_resource_id = azurerm_log_analytics_workspace.workspace.id
+   workspace_name        = azurerm_log_analytics_workspace.workspace.name
 
-#   plan {
-#     publisher = "Microsoft"
-#     product   = "OMSGallery/ContainerInsights"
-#   }
-# }
+   plan {
+     publisher = "Microsoft"
+     product   = "OMSGallery/ContainerInsights"
+   }
+ }
+
+resource "azurerm_log_analytics_solution" "VMInsights" {
+  location              = azurerm_log_analytics_workspace.workspace.location
+  resource_group_name   = azurerm_log_analytics_workspace.workspace.resource_group_name
+  solution_name         = "VMInsights"
+  workspace_resource_id = azurerm_log_analytics_workspace.workspace.id
+  workspace_name        = azurerm_log_analytics_workspace.workspace.name
+
+  plan {
+    publisher = "Microsoft"
+    product   = "OMSGallery/VMInsights"
+  }
+}
+
+
+
+#################################
+# log diagnostic
+#################################
+resource "azurerm_monitor_diagnostic_setting" "diagnostics_aks" {
+  for_each = var.log_analytics_workspace != null ? toset(["diagnostics_aks"]) : []
+  name               = "diagnostics_aks"
+  target_resource_id = azurerm_kubernetes_cluster.aks_cluster.id
+  log_analytics_workspace_id = azurerm_log_analytics_workspace.workspace.id
+
+  log {
+    category = "kube-apiserver"
+    enabled  = true
+    retention_policy {
+        enabled = true
+        days = 14
+    }
+  }
+
+  log {
+    category = "kube-controller-manager"
+    enabled  = true
+    retention_policy {
+        enabled = true
+        days = 14
+    }
+  }
+
+  log {
+    category = "kube-scheduler"
+    enabled  = true
+    retention_policy {
+        enabled = true
+        days = 14
+    }
+  }
+
+  log {
+    category = "kube-audit"
+    enabled  = true
+    retention_policy {
+        enabled = true
+        days = 14
+    }
+  }
+
+  log {
+    category = "cluster-autoscaler"
+    enabled  = true
+    retention_policy {
+        enabled = true
+        days = 14
+    }
+  }
+
+  log {
+    category = "kube-apiserver"
+    enabled  = true
+    retention_policy {
+        enabled = true
+        days = 14
+    }
+  }
+
+  metric {
+    category = "AllMetrics"
+    enabled = true
+    retention_policy {
+      enabled = true
+      days = 14
+    }
+  }
+
+}

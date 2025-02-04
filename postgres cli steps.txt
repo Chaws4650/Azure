@@ -1,6 +1,7 @@
 
 #https://gist.github.com/alexisP/88222ce7a6ed6188e726186f4b763e23
 #https://alexisplantin.fr/workload-identity-federation/
+#https://blog.devops.dev/deploying-spring-boot-application-on-k8s-1a558d4f965a >> insert data example
 
 export RESOURCE_GROUP="spring-boot-demo"
 export CLUSTER_NAME="spring-boot-demo"

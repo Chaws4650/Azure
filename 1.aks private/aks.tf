@@ -29,7 +29,15 @@ resource "azurerm_kubernetes_cluster" "aks_cluster" {
     object_id                 = azurerm_user_assigned_identity.kubelet_identity.principal_id
     user_assigned_identity_id = azurerm_user_assigned_identity.kubelet_identity.id
   }
+/*
+  linux_profile {
+    admin_username = "toor"
 
+    ssh_key {
+      key_data = tls_private_key.aks_ssh_key.public_key_openssh
+    }
+  }
+*/
   network_profile {
     # network_plugin     = "azure" # kubenet
     # network_policy     = "azure" # "calico"/"cilium"
@@ -190,3 +198,39 @@ resource "azurerm_role_assignment" "cluster_admin1" {
   scope                = azurerm_kubernetes_cluster.aks_cluster.id
 }
 
+/*
+resource "tls_private_key" "aks_ssh_key" {
+  algorithm = "RSA"
+  rsa_bits  = 2048
+
+}
+
+resource "azurerm_key_vault_secret" "aks" {
+  name         = "aks-tls"
+  value        = tls_private_key.aks_ssh_key.private_key_pem
+  key_vault_id = azurerm_key_vault.aks_kv.id
+
+}
+
+####################
+# Output files
+####################
+resource "local_file" "kubeconfig" {
+  depends_on = [azurerm_kubernetes_cluster.main]
+  content     = azurerm_kubernetes_cluster.main.kube_config_raw
+  filename = "${path.root}/outputs/kubeconfig.yaml"
+}
+
+
+ resource "null_resource" "get_nodes" {
+   depends_on = ["local_file.kubeconfig"]
+   triggers = {
+     always_run = "${local_file.kubeconfig.filename}"
+   }
+   provisioner "local-exec" {
+     command = "kubectl --kubeconfig=${local_file.kubeconfig.filename} get nodes"
+   }
+ }
+
+
+*/

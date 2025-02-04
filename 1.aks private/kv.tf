@@ -51,6 +51,7 @@ resource "azurerm_key_vault" "aks_kv" {
     bypass         = "AzureServices"
     default_action = "Allow"
     # virtual_network_subnet_ids = var.private_subnet_id
+    # ip_rules       = []
   }
 }
 
@@ -94,6 +95,30 @@ resource "azurerm_key_vault_secret" "kvs_username" {
   value        = "P@ssw0rd123!"
   key_vault_id = azurerm_key_vault.aks_kv.id
 }
+
+resource "azurerm_monitor_diagnostic_setting" "this" {
+  name                       = "diagnostics_keyvault"
+  target_resource_id         = azurerm_key_vault.this.id
+  log_analytics_workspace_id = var.log_analytics_workspace.id
+
+  log {
+    category = "AuditEvent"
+
+    retention_policy {
+      enabled = true
+    }
+  }
+
+  metric {
+    category = "AllMetrics"
+
+    retention_policy {
+      enabled = true
+    }
+  }
+}
+
+
 */
 resource "azurerm_role_assignment" "cluster_admin" {
   depends_on = [ azurerm_key_vault.aks_kv ]
@@ -101,6 +126,7 @@ resource "azurerm_role_assignment" "cluster_admin" {
   role_definition_name = "Key Vault Administrator"
   scope                = azurerm_key_vault.aks_kv.id
 }
+
 
 
 
