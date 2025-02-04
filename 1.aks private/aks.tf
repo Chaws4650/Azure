@@ -19,6 +19,27 @@ resource "azurerm_kubernetes_cluster" "aks_cluster" {
   node_os_upgrade_channel   = "NodeImage"
   node_resource_group       = "rg-aks-node"
 
+  maintenance_window_auto_upgrade {
+    frequency = "Weekly"
+    interval  = 1
+    duration  = 4
+    day_of_week = "Friday"
+    utc_offset = "-06:00"
+    start_time = "20:00"
+  }
+
+  maintenance_window_node_os {
+    frequency = "Weekly"
+    interval  = 1
+    duration  = 4
+    day_of_week = "Saturday"
+    utc_offset = "-06:00"
+    start_time = "20:00"
+  }
+  auto_scaler_profile {
+    max_unready_nodes = "1"
+  }  
+
   identity {
     type         = "UserAssigned" # SystemAssigned
     identity_ids = [azurerm_user_assigned_identity.aks_identity.id]
@@ -93,7 +114,8 @@ resource "azurerm_kubernetes_cluster" "aks_cluster" {
   lifecycle {
     ignore_changes = [
       auto_scaler_profile,
-      default_node_pool
+      default_node_pool,
+      kubernetes_version      
     ]
   }
     web_app_routing {
